@@ -1,19 +1,17 @@
-// Verified Logic for Spawning Carbine (t148)
-// 修复说明 (2025-01-16):
-// 1. 发现实例数组被混淆为 'q' (原为 'instances')。
-// 2. 玩家类型名称被混淆，改为通过行为 (ScrollTo) 或 实例数量/属性 启发式查找。
-// 3. createInstance 可能混淆为 'TF'。
+// Enhanced Logic for Spawning Item (Target: t145 - Deagle)
+// Updated: 2026-01-15 - Robust Version
 
 (function () {
+    console.clear();
     var runtime = window.cr_getC2Runtime();
     if (!runtime) {
         console.error("Construct 2 Runtime not found!");
         return;
     }
 
-    console.log("=== 运行时诊断 (v2) ===");
+    console.log("%c=== Mini Dayz Spawner DEBUG (v4) ===", "color: lime; font-weight: bold; font-size: 16px;");
 
-    // Helper to get instances from a type regardless of obfuscation
+    // Helper to get instances from a type
     function getInstances(type) {
         if (!type) return [];
         return type.instances || type.q || [];
@@ -23,179 +21,150 @@
     var player = null;
     var playerType = null;
 
-    // 策略 A: 查找带有 ScrollTo 行为的实例 (C2 游戏中玩家通常绑定 ScrollTo)
-    // 行为实例通常在 behavior_insts, 可能混淆。
-    // 我们遍历所有有实例的类型，检查其属性。
-    console.log("正在查找玩家...");
+    console.log("正在自动化搜索玩家和游戏图层...");
 
-    var potentialPlayers = [];
+    // Heuristic 1: Look for survivability properties
+    var survivabilityProps = ["hp", "hunger", "thirst", "blood", "temperature", "temp", "sanity", "isPlayer"];
+    var bestMatch = null;
+    var maxPropsFound = 0;
 
     for (var key in runtime.types) {
         var type = runtime.types[key];
         var instances = getInstances(type);
+        if (instances.length === 1) {
+            var inst = instances[0];
+            var propsFound = survivabilityProps.filter(p => p in inst).length;
 
-        if (instances.length > 0) {
-            // 检查每个实例
-            for (var i = 0; i < instances.length; i++) {
-                var inst = instances[i];
-                // 检查是否有 behavior_insts (或类似数组)
-                // 混淆后很难直接通过名字找 behavior，但我们可以找 behavior_insts 的特征
-                // 通常它是一个数组
-
-                // 简单启发式：如果是单一实例且有 x, y，且不是背景(layer不为背景)
-                if (instances.length === 1 && typeof inst.x === 'number' && typeof inst.y === 'number') {
-                    // 记录下来
-                    potentialPlayers.push({ inst: inst, key: key, score: 0 });
-                }
+            if (propsFound > maxPropsFound) {
+                maxPropsFound = propsFound;
+                bestMatch = { inst: inst, key: key, score: propsFound };
             }
         }
     }
 
-    // 筛选：通常玩家会有较多属性 (health, hunger等) 或者位于特定层
-    // 让我们尝试通过 "可移动" 特征或 global var 关联。
-    // 由于缺乏元数据，我们尝试只需找到 *一个* 看起来像主角的。
-    // 如果 potentialPlayers 很多，我们取第一个有 'my_type' 属性或者 behavior 的。
-
-    // 更新策略：直接搜索所有类型，找到 't148' (卡宾枪)，看能否生成。
-    // 至于位置，如果找不到玩家，就生成在屏幕中心。
-
-    if (potentialPlayers.length > 0) {
-        // 假设第一个单例实体是玩家 (通常 MainHero 是单例)
-        player = potentialPlayers[0].inst;
-        console.log("推测玩家是类型:", potentialPlayers[0].key, "坐标:", player.x, player.y);
-    } else {
-        // Fallback: Use center of screen
-        var layer = runtime.running_layout.layers[0];
-        player = { x: runtime.width / 2, y: runtime.height / 2, layer: layer };
-        console.warn("未找到玩家，将尝试在屏幕中心生成:", player.x, player.y);
+    if (bestMatch && bestMatch.score > 0) {
+        player = bestMatch.inst;
+        playerType = bestMatch.key;
+        console.log(`%c[Player] Found via properties: ${playerType} (Score: ${bestMatch.score})`, "color: cyan");
     }
 
-    // 2. Find Item Type (t148)
-    var itemType = runtime.types["t148"];
-    if (!itemType) {
-        // Try searching by name in types_by_index if available (unlikely in this ver)
-        console.error("Critical: Item 't148' not found in runtime.types.");
-        return;
-    }
-    console.log("找到物品类型 t148");
-
-    // 3. Find Layer (查找层) - Enhanced Debugging
-    var layer = player.layer || player.l;
-
-    if (!layer) {
-        console.log("Player.layer/l is missing. Inspecting player keys for hidden layer ref:");
-        // Dump player keys to help user identify layer prop
-        var shortKeys = [];
-        for (var k in player) {
-            if (typeof player[k] === 'object' && player[k] !== null) shortKeys.push(k);
-        }
-        console.log("Player object keys (objects only):", shortKeys.join(", "));
-    }
-
-    if (!layer) {
-        console.log("Trying to find global layer from layout...");
-        var layoutObj = runtime.running_layout;
-
-        if (!layoutObj && runtime.Fs && runtime.Xv) {
-            layoutObj = runtime.Fs[runtime.Xv];
-            console.log("Found layout via runtime.Fs[runtime.Xv]");
-        }
-
-        if (layoutObj) {
-            console.log("Inspecting Layout Object Keys:");
-            console.log(Object.keys(layoutObj).join(", "));
-
-            // Heuristic: Layers is usually an array of objects
-            // Scan for ANY array in layoutObj
-            var candidateLayers = [];
-            for (var k in layoutObj) {
-                if (Array.isArray(layoutObj[k]) && layoutObj[k].length > 0) {
-                    var first = layoutObj[k][0];
-                    // Layer usually has 'name', 'index', 'visible', 'instances' (or obfuscated versions)
-                    // If it has a reference to runtime, or instances array (q), it's likely a layer.
-                    if (typeof first === 'object') {
-                        console.log("Found array '" + k + "' with length " + layoutObj[k].length);
-                        // Check if it looks like a layer
-                        if (first.name || first.index !== undefined || first.instances || first.q) {
-                            layer = first;
-                            console.log("Guessed layer from array property: " + k);
-                            break;
-                        }
-                        // Store as candidate
-                        candidateLayers.push(layoutObj[k]);
+    // Heuristic 2: Look for behavior clues (ScrollTo is usually index 0 or has a specific property)
+    if (!player) {
+        for (var key in runtime.types) {
+            var insts = getInstances(runtime.types[key]);
+            if (insts.length === 1) {
+                var inst = insts[0];
+                // Check behaviors (usually an array like behavior_insts, b, or similar)
+                var behaviors = inst.behavior_insts || inst.u || [];
+                for (var b of behaviors) {
+                    if (b.behavior && (b.behavior.name === "ScrollTo" || b.behavior.kd === "ScrollTo")) {
+                        player = inst;
+                        playerType = key;
+                        console.log(`%c[Player] Found via ScrollTo: ${playerType}`, "color: cyan");
+                        break;
                     }
                 }
             }
+            if (player) break;
+        }
+    }
 
-            // If still no layer, just take the first array of objects found in layout
-            if (!layer && candidateLayers.length > 0) {
-                console.warn("Taking wild guess: using first array in layout as layers list.");
-                var list = candidateLayers[0];
-                if (list.length > 0) layer = list[0];
+    if (!player) {
+        console.warn("未锁定玩家，请确保已进入地图环境。使用画面中心作为默认点。");
+        player = { x: runtime.width / 2, y: runtime.height / 2 };
+    } else {
+        console.log(`%c[Status] Player at (${Math.round(player.x)}, ${Math.round(player.y)})`, "color: #33ccff");
+    }
+
+    // 2. Find Item Type (t145)
+    var targetID = "t145";
+    var itemType = runtime.types[targetID];
+    if (!itemType) {
+        console.error(`%c[Error] Target ID '${targetID}' not found in runtime.types. Check data.js.`, "color: red");
+        return;
+    }
+    console.log(`%c[Item] Target Type identified: ${targetID}`, "color: yellow");
+
+    // 3. Find Layer (查找层)
+    var layer = null;
+    var layout = runtime.running_layout || (runtime.Fs && runtime.Fs[runtime.Xv]);
+
+    if (layout) {
+        var layers = layout.layers || layout.nb || [];
+        // Priority 1: Named "Game", "Objects", "Ground"
+        for (var l of layers) {
+            var lName = (l.name || "").toLowerCase();
+            if (["game", "objects", "ground", "main"].includes(lName)) {
+                layer = l;
+                console.log(`%c[Layer] Found by name: ${l.name}`, "color: pink");
+                break;
+            }
+        }
+
+        // Priority 2: Use player's layer index if available
+        if (!layer && player && player.layer) {
+            layer = player.layer;
+            console.log(`%c[Layer] Using player's layer: ${layer.name || "Unnamed"}`, "color: pink");
+        }
+
+        // Priority 3: First visible layer with instances
+        if (!layer) {
+            for (var l of layers) {
+                if (l.visible && getInstances(l).length > 0) {
+                    layer = l;
+                    console.log(`%c[Layer] Using fallback visible layer: ${l.name || "Index " + l.index}`, "color: pink");
+                    break;
+                }
             }
         }
     }
 
     if (!layer) {
-        console.error("CRITICAL: Still could not find Layer.");
-        alert("错误：无法找到游戏层 (Layer)。请截图控制台日志给我。");
-        // return; // Don't return, maybe we can spawn without layer if function allows? (Unlikely)
-    } else {
-        console.log("Using Layer:", layer);
+        console.error("%c[Error] Layout/Layer system not initialized or inaccessible.", "color: red");
+        return;
     }
 
     // 4. Create Instance / Spawn
-
-    // Safety check for layer object validity
-    if (!layer) {
-        console.error("Aborting spawn due to missing layer.");
-        return;
-    }
-
-    // Attempt creation
     var created = false;
+    var spawnFuncs = ["createInstance", "TF", "XF", "mC", "vE"];
 
-    // 1. runtime.createInstance
-    if (typeof runtime.createInstance === 'function') {
-        try {
-            runtime.createInstance(itemType, layer, player.x, player.y);
-            console.log("Called runtime.createInstance");
-            created = true;
-        } catch (e) { console.error("createInstance failed:", e); }
+    console.log("正在尝试注入生成指令...");
+
+    for (var fName of spawnFuncs) {
+        if (typeof runtime[fName] === 'function') {
+            try {
+                // Construct 2 createInstance(type, layer, x, y)
+                runtime[fName](itemType, layer, player.x, player.y);
+                console.log(`%c[Success] Dispatched spawn call via: runtime.${fName}`, "color: #00ff00; font-weight: bold;");
+                created = true;
+                break;
+            } catch (e) {
+                // Silently try next
+            }
+        }
     }
 
-    // 2. runtime.TF (常见混淆名)
-    if (!created && typeof runtime.TF === 'function') {
-        try {
-            runtime.TF(itemType, layer, player.x, player.y);
-            console.log("Called runtime.TF");
-            created = true;
-        } catch (e) { console.error("TF failed:", e); }
-    }
-
-    // 3. 暴力搜索 4 参数函数
+    // Bruteforce search for function with 4 arguments
     if (!created) {
-        console.log("Searching for createInstance-like function...");
+        console.log("主要方法失败，启动暴力搜索 (4-arg functions)...");
         for (var k in runtime) {
             if (typeof runtime[k] === 'function' && runtime[k].length === 4) {
-                if (k === 'alert' || k === 'prompt' || k === 'console') continue;
+                if (["alert", "prompt", "confirm", "scroll", "move", "XF"].includes(k)) continue;
+                if (k.length > 5) continue;
                 try {
-                    if (k.length < 3) {
-                        runtime[k](itemType, layer, player.x, player.y);
-                        console.log("Tried function: " + k);
-                        created = true;
-                        break;
-                    }
+                    runtime[k](itemType, layer, player.x, player.y);
+                    console.log(`%c[Bruteforce] Triggered runtime.${k}`, "color: orange");
+                    created = true;
                 } catch (e) { }
             }
         }
     }
 
     if (created) {
-        console.log("生成指令已发送。请检查游戏内是否出现卡宾枪。");
-        alert("尝试生成卡宾枪完成！\n位置: " + Math.round(player.x) + "," + Math.round(player.y));
+        console.log("%c>>> 生成指令执行完毕。请在游戏内移动一下或查看角色脚下。 <<<", "color: #00ff00; font-size: 14px;");
+        alert(`指令执行成功！\nID: ${targetID}\n位置: ${Math.round(player.x)}, ${Math.round(player.y)}`);
     } else {
-        alert("无法找到生成函数 (createInstance)。请检查控制台。");
+        alert("无法找到匹配的生成函数。请检查 console 日志寻找线索。");
     }
 
 })();
