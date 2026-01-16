@@ -1,98 +1,268 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <meta charset="UTF-8" />
+	<meta charset="UTF-8" />
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
 	<title>Mini DAYZ</title>
-	
+
 	<!-- Standardised web app manifest -->
 	<link rel="manifest" href="appmanifest.json" />
-	
+
 	<!-- Allow fullscreen mode on iOS devices. (These are Apple specific meta tags.) -->
-	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui" />
+	<meta name="viewport"
+		content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui" />
 	<meta name="apple-mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-status-bar-style" content="black" />
 	<link rel="apple-touch-icon" sizes="256x256" href="icon-256.png" />
 	<meta name="HandheldFriendly" content="true" />
-	
+
 	<!-- Chrome for Android web app tags -->
 	<meta name="mobile-web-app-capable" content="yes" />
 	<link rel="shortcut icon" sizes="256x256" href="icon-256.png" />
 
-    <!-- All margins and padding must be zero for the canvas to fill the screen. -->
+	<!-- All margins and padding must be zero for the canvas to fill the screen. -->
 	<style type="text/css">
 		* {
 			padding: 0;
 			margin: 0;
 		}
-		html, body {
+
+		html,
+		body {
 			background: #000;
 			color: #fff;
 			overflow: hidden;
 			touch-action: none;
 			-ms-touch-action: none;
 		}
+
 		canvas {
 			touch-action-delay: none;
 			touch-action: none;
 			-ms-touch-action: none;
 		}
-    </style>
-	
 
-</head> 
- 
-<body> 
-	<div id="fb-root"></div>
-	
-	<script>
-	// Issue a warning if trying to preview an exported project on disk.
-	(function(){
-		// Check for running exported on file protocol
-		if (window.location.protocol.substr(0, 4) === "file")
-		{
-			alert("Exported games won't work until you upload them. (When running on the file:/// protocol, browsers block many features from working for security reasons.)");
+		#debug-controls {
+			position: fixed;
+			top: 12px;
+			left: calc(12px + 7%);
+			z-index: 2147483647;
+			display: grid;
+			grid-template-columns: repeat(2, auto);
+			grid-auto-rows: auto;
+			gap: 10px;
+			padding: 6px;
+			background: rgba(0, 0, 0, 0.45);
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			border-radius: 6px;
+			pointer-events: auto;
+			opacity: 0.95;
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 		}
-	})();
+
+		#debug-controls button {
+			font: 14px/1.2 "Segoe UI", Tahoma, Arial, sans-serif;
+			min-width: 120px;
+			min-height: 36px;
+			padding: 6px 10px;
+			background: rgba(30, 30, 30, 0.9);
+			color: #fff;
+			border: 1px solid #777;
+			border-radius: 6px;
+			cursor: pointer;
+		}
+
+		#item-modal {
+			position: fixed;
+			inset: 0;
+			display: none;
+			align-items: center;
+			justify-content: center;
+			background: rgba(0, 0, 0, 0.65);
+			z-index: 2147483647;
+		}
+
+		#item-modal.active {
+			display: flex;
+		}
+
+		#item-modal .panel {
+			background: rgba(20, 20, 20, 0.95);
+			border: 1px solid #666;
+			border-radius: 8px;
+			padding: 14px;
+			min-width: 240px;
+			color: #fff;
+			font: 14px/1.4 "Segoe UI", Tahoma, Arial, sans-serif;
+			box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+		}
+
+		#item-modal .panel label {
+			display: block;
+			margin-bottom: 8px;
+		}
+
+		#item-modal input {
+			width: 100%;
+			padding: 6px 8px;
+			background: #111;
+			color: #fff;
+			border: 1px solid #555;
+			border-radius: 4px;
+			outline: none;
+		}
+
+		#item-modal .actions {
+			margin-top: 10px;
+			display: flex;
+			justify-content: flex-end;
+			gap: 8px;
+		}
+
+		#item-modal .actions button {
+			font: 13px/1.2 "Segoe UI", Tahoma, Arial, sans-serif;
+			min-width: 72px;
+			min-height: 30px;
+			padding: 4px 8px;
+			background: rgba(40, 40, 40, 0.9);
+			color: #fff;
+			border: 1px solid #777;
+			border-radius: 4px;
+			cursor: pointer;
+		}
+
+		#c2canvasdiv {
+			position: relative;
+		}
+
+		#c2canvas {
+			position: relative;
+			z-index: 1;
+		}
+	</style>
+
+
+</head>
+
+<body>
+	<div id="fb-root"></div>
+	<div id="debug-controls">
+		<span></span>
+		<button id="run-test-s1" type="button">Run test_s1</button>
+	</div>
+	<div id="item-modal" aria-hidden="true">
+		<div class="panel">
+			<label for="item-id-input">Item ID</label>
+			<input id="item-id-input" type="text" placeholder="e.g. t148" autocomplete="off" />
+			<div class="actions">
+				<button id="item-id-cancel" type="button">Cancel</button>
+				<button id="item-id-ok" type="button">OK</button>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		// Issue a warning if trying to preview an exported project on disk.
+		(function () {
+			// Check for running exported on file protocol
+			if (window.location.protocol.substr(0, 4) === "file") {
+				alert("Exported games won't work until you upload them. (When running on the file:/// protocol, browsers block many features from working for security reasons.)");
+			}
+		})();
 	</script>
-	
+
 	<!-- The canvas must be inside a div called c2canvasdiv -->
 	<div id="c2canvasdiv">
-	
 		<!-- The canvas the project will render to.  If you change its ID, don't forget to change the
 		ID the runtime looks for in the jQuery events above (ready() and cr_sizeCanvas()). -->
 		<canvas id="c2canvas" width="1024" height="768">
 			<!-- This text is displayed if the visitor's browser does not support HTML5.
 			You can change it, but it is a good idea to link to a description of a browser
 			and provide some links to download some popular HTML5-compatible browsers. -->
-			<h1>Your browser does not appear to support HTML5.  Try upgrading your browser to the latest version.  <a href="http://www.whatbrowser.org">What is a browser?</a>
-			<br/><br/><a href="http://www.microsoft.com/windows/internet-explorer/default.aspx">Microsoft Internet Explorer</a><br/>
-			<a href="http://www.mozilla.com/firefox/">Mozilla Firefox</a><br/>
-			<a href="http://www.google.com/chrome/">Google Chrome</a><br/>
-			<a href="http://www.apple.com/safari/download/">Apple Safari</a></h1>
+			<h1>Your browser does not appear to support HTML5. Try upgrading your browser to the latest version. <a
+					href="http://www.whatbrowser.org">What is a browser?</a>
+				<br /><br /><a href="http://www.microsoft.com/windows/internet-explorer/default.aspx">Microsoft Internet
+					Explorer</a><br />
+				<a href="http://www.mozilla.com/firefox/">Mozilla Firefox</a><br />
+				<a href="http://www.google.com/chrome/">Google Chrome</a><br />
+				<a href="http://www.apple.com/safari/download/">Apple Safari</a>
+			</h1>
 		</canvas>
-		
 	</div>
-	
+
 	<!-- Pages load faster with scripts at the bottom -->
-	
+
 	<!-- Construct 2 exported games require jQuery. -->
 	<script src="jquery-3.4.1.min.js"></script>
 
 
-	
-    <!-- The runtime script.  You can rename it, but don't forget to rename the reference here as well.
+
+	<!-- The runtime script.  You can rename it, but don't forget to rename the reference here as well.
     This file will have been minified and obfuscated if you enabled "Minify script" during export. -->
 	<script src="c2runtime.js"></script>
+	<script>
+		(function () {
+			var btn = document.getElementById("run-test-s1");
+			var modal = document.getElementById("item-modal");
+			var input = document.getElementById("item-id-input");
+			var okBtn = document.getElementById("item-id-ok");
+			var cancelBtn = document.getElementById("item-id-cancel");
+			if (!btn) return;
+			function spawnItemById(itemId) {
+				var rt = window.cr_getC2Runtime && window.cr_getC2Runtime();
+				if (!rt || !rt.S) return { err: "no runtime" };
+				var type = rt.S.find(function (t) { return t && t.name === itemId; });
+				if (!type) return { err: "no type " + itemId };
+				var layer = rt.wa && rt.wa.ua ? rt.wa.ua.find(function (l) { return l && l.name === "items_on_ground"; }) : null;
+				if (!layer) return { err: "no layer items_on_ground" };
+				var x = rt.wa.scrollX;
+				var y = rt.wa.scrollY;
+				var inst = rt.Sg(type.be, layer, false, x, y, false);
+				return { created: !!inst, typeCount: type.q ? type.q.length : null };
+			}
+			function openModal() {
+				if (!modal || !input) return;
+				modal.classList.add("active");
+				modal.setAttribute("aria-hidden", "false");
+				input.value = "";
+				setTimeout(function () { input.focus(); }, 0);
+			}
+			function closeModal() {
+				if (!modal) return;
+				modal.classList.remove("active");
+				modal.setAttribute("aria-hidden", "true");
+			}
+			function confirmSpawn() {
+				if (!input) return;
+				var itemId = input.value.trim();
+				if (!itemId) return;
+				var result = spawnItemById(itemId);
+				if (result && result.err) console.warn(result.err);
+				closeModal();
+			}
+			btn.addEventListener("click", openModal);
+			if (okBtn) okBtn.addEventListener("click", confirmSpawn);
+			if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
+			if (input) {
+				input.addEventListener("keydown", function (e) {
+					if (e.key === "Enter") {
+						confirmSpawn();
+					} else if (e.key === "Escape") {
+						closeModal();
+					}
+				});
+			}
+		})();
+	</script>
 
-    <script>
+	<script>
 		// Start the Construct 2 project running on window load.
-		jQuery(document).ready(function ()
-		{			
+		jQuery(document).ready(function () {
 			// Create new runtime using the c2canvas
 			cr_createRuntime("c2canvas");
 		});
-		
+
 		// Pause and resume on page becoming visible/invisible
 		function onVisibilityChanged() {
 			if (document.hidden || document.mozHidden || document.webkitHidden || document.msHidden)
@@ -100,70 +270,67 @@
 			else
 				cr_setSuspended(false);
 		};
-		
+
 		document.addEventListener("visibilitychange", onVisibilityChanged, false);
 		document.addEventListener("mozvisibilitychange", onVisibilityChanged, false);
 		document.addEventListener("webkitvisibilitychange", onVisibilityChanged, false);
 		document.addEventListener("msvisibilitychange", onVisibilityChanged, false);
-		
-		function OnRegisterSWError(e)
-		{
+
+		function OnRegisterSWError(e) {
 			console.warn("Failed to register service worker: ", e);
 		};
-		
+
 		// Runtime calls this global method when ready to start caching (i.e. after startup).
 		// This registers the service worker which caches resources for offline support.
-		window.C2_RegisterSW = function C2_RegisterSW()
-		{
+		window.C2_RegisterSW = function C2_RegisterSW() {
 			if (!navigator.serviceWorker)
 				return;		// no SW support, ignore call
-			
+
 			try {
 				navigator.serviceWorker.register("sw.js", { scope: "./" })
-				.then(function (reg)
-				{
-					console.log("Registered service worker on " + reg.scope);
-				})
-				.catch(OnRegisterSWError);
+					.then(function (reg) {
+						console.log("Registered service worker on " + reg.scope);
+					})
+					.catch(OnRegisterSWError);
 			}
-			catch (e)
-			{
+			catch (e) {
 				OnRegisterSWError(e);
 			}
-			
-			setTimeout(function() {
+
+			setTimeout(function () {
 				console.log('尝试解锁...')
 				var c = indexedDB.open('localforage')
-				c.onsuccess = function(e) {
-				     var db = e.target.result
-				    var t = db.transaction(['keyvaluepairs'], 'readwrite')
-				
-				    var oS = t.objectStore('keyvaluepairs')
+				c.onsuccess = function (e) {
+					var db = e.target.result
+					var t = db.transaction(['keyvaluepairs'], 'readwrite')
+
+					var oS = t.objectStore('keyvaluepairs')
 					//解锁角色
-				    var uRQ = oS.put('17', 'Characters_unlocks')
-				    uRQ.onsuccess = function(e) {
-				        console.log('解锁成功')
-				    }
+					var uRQ = oS.put('17', 'Characters_unlocks')
+					uRQ.onsuccess = function (e) {
+						console.log('解锁成功')
+					}
 					for (var i = 4; i < 21; i++) {
 						var fRQ = oS.put(1, 'char_' + i)
-						fRQ.onsuccess = function(e) {
-						    console.log('解锁成功char_' + i)
+						fRQ.onsuccess = function (e) {
+							console.log('解锁成功char_' + i)
 						}
 					}
-					
-				    //解锁武器和物品
+
+					//解锁武器和物品
 					var arr = ['aug_unlock', 'deagle_unlock', 'katana_unlock', 'laser_unlock', 'mac10_unlock', 'plast_unlock', 'saiga12_unlock', 'smoke_unlock',
-					'sv98_unlock', 'vss_unlock', 'xxx_unlock', 'lighter_unlock']
+						'sv98_unlock', 'vss_unlock', 'xxx_unlock', 'lighter_unlock']
 					for (var i = 0; i < arr.length; i++) {
 						var fRQ = oS.put(1, arr[i])
-						fRQ.onsuccess = function(e) {
-						    console.log('解锁成功' + arr[i])
+						fRQ.onsuccess = function (e) {
+							console.log('解锁成功' + arr[i])
 						}
 					}
-				
+
 				}
 			}, 5000)
 		};
-    </script>
-</body> 
-</html> 
+	</script>
+</body>
+
+</html>

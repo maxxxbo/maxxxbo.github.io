@@ -1,0 +1,24 @@
+{
+  "name": "maxxxbo.github.io",
+  "version": "1.0.0",
+  "description": "* ### Change controls from stick to tap/draw or keyboard(WASD) for PCV\r * ### F11/Fullscreen before the game loads",
+  "main": "c2runtime.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxxxbo/maxxxbo.github.io.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/maxxxbo/maxxxbo.github.io/issues"
+  },
+  "homepage": "https://github.com/maxxxbo/maxxxbo.github.io#readme",
+  "devDependencies": {
+    "chrome-devtools": "^0.0.0",
+    "chrome-devtools-mcp": "^0.13.0"
+  }
+}
