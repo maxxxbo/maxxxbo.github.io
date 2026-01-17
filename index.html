@@ -132,6 +132,29 @@
 			cursor: pointer;
 		}
 
+		#item-modal .extra-actions {
+			margin-top: 15px;
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			gap: 8px;
+		}
+
+		#item-modal .extra-actions button {
+			font: 12px/1.2 "Segoe UI", Tahoma, Arial, sans-serif;
+			min-height: 28px;
+			padding: 4px;
+			background: rgba(50, 50, 50, 0.9);
+			color: #fff;
+			border: 1px solid #555;
+			border-radius: 4px;
+			cursor: pointer;
+		}
+
+		#item-modal .extra-actions button:hover {
+			background: rgba(70, 70, 70, 0.9);
+			border-color: #888;
+		}
+
 		#c2canvasdiv {
 			position: relative;
 		}
@@ -153,12 +176,32 @@
 	</div>
 	<div id="item-modal" aria-hidden="true">
 		<div class="panel">
-			<label for="item-id-input">Item ID</label>
-			<input id="item-id-input" type="text" placeholder="e.g. 148" autocomplete="off" inputmode="numeric"
+			<div class="extra-actions">
+				<button class="spawn-abc-btn" type="button" data-id="711">空投</button>
+				<button class="spawn-abc-btn" type="button" data-id="127">能量饮</button>
+				<button class="spawn-abc-btn" type="button" data-id="379">枪械维</button>
+				<button class="spawn-abc-btn" type="button" data-id="963">磨刀石</button>
+				<button class="spawn-abc-btn" type="button" data-id="989">教育书</button>
+				<button class="spawn-abc-btn" type="button" data-id="370">缝纫包</button>
+				<button class="spawn-abc-btn" type="button" data-id="1015">环氧树</button>
+				<button class="spawn-abc-btn" type="button" data-id="775">长剑</button>
+			</div>
+			<label for="item-id-input">Code</label>
+			<input id="item-id-input" type="text" placeholder="e.g. 31=7.62" autocomplete="off" inputmode="numeric"
 				oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
 			<div class="actions">
 				<button id="item-id-cancel" type="button">Cancel</button>
 				<button id="item-id-ok" type="button">OK</button>
+			</div>
+			<div class="extra-actions">
+				<button class="spawn-abc-btn" type="button" data-id="942">V25</button>
+				<button class="spawn-abc-btn" type="button" data-id="941">40榴弹</button>
+				<button class="spawn-abc-btn" type="button" data-id="943">M203</button>
+				<button class="spawn-abc-btn" type="button" data-id="944">GP-25</button>
+				<button class="spawn-abc-btn" type="button" data-id="129">Grz</button>
+				<button class="spawn-abc-btn" type="button" data-id="130">VSS</button>
+				<button class="spawn-abc-btn" type="button" data-id="137">9x18</button>
+				<button class="spawn-abc-btn" type="button" data-id="120">巨盔</button>
 			</div>
 		</div>
 	</div>
@@ -254,6 +297,16 @@
 					}
 				});
 			}
+
+			// ABC buttons logic
+			var abcBtns = document.querySelectorAll(".spawn-abc-btn");
+			abcBtns.forEach(function (btn) {
+				btn.addEventListener("click", function () {
+					var itemId = btn.getAttribute("data-id") || '711';
+					var result = spawnItemById('t' + itemId);
+					console.log("Spawn " + itemId + " result:", result);
+				});
+			});
 		})();
 	</script>
 
