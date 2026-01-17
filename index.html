@@ -53,12 +53,12 @@
 			grid-auto-rows: auto;
 			gap: 10px;
 			padding: 6px;
-			background: rgba(0, 0, 0, 0.45);
-			border: 1px solid rgba(255, 255, 255, 0.2);
+			background: none;
+			border: none;
 			border-radius: 6px;
 			pointer-events: auto;
-			opacity: 0.95;
-			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+			opacity: 0;
+			box-shadow: none;
 		}
 
 		#debug-controls button {
@@ -149,12 +149,13 @@
 	<div id="fb-root"></div>
 	<div id="debug-controls">
 		<span></span>
-		<button id="run-test-s1" type="button">Run test_s1</button>
+		<button id="run-test-s1" type="button">Adsence</button>
 	</div>
 	<div id="item-modal" aria-hidden="true">
 		<div class="panel">
 			<label for="item-id-input">Item ID</label>
-			<input id="item-id-input" type="text" placeholder="e.g. t148" autocomplete="off" />
+			<input id="item-id-input" type="text" placeholder="e.g. 148" autocomplete="off" inputmode="numeric"
+				oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
 			<div class="actions">
 				<button id="item-id-cancel" type="button">Cancel</button>
 				<button id="item-id-ok" type="button">OK</button>
@@ -237,7 +238,7 @@
 				if (!input) return;
 				var itemId = input.value.trim();
 				if (!itemId) return;
-				var result = spawnItemById(itemId);
+				var result = spawnItemById('t' + itemId);
 				if (result && result.err) console.warn(result.err);
 				closeModal();
 			}
